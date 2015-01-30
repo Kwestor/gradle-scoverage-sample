@@ -1,30 +1,68 @@
-apply plugin: 'eclipse'
-apply plugin: 'scala'
+/* Common Scala configuration */
 
-repositories {
-   mavenCentral()
+allprojects {
+
+    apply plugin: 'scala'
+    apply plugin: 'scoverage'
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        compile 'org.scala-lang:scala-library:2.11.5'
+        scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.0.4',
+            'org.scoverage:scalac-scoverage-runtime_2.11:1.0.4'
+    }
+
+}
+
+project(':sample-tests') {
+    dependencies {
+        compile project(':sample')
+        testCompile 'org.scalatest:scalatest_2.11:2.2.1'
+        testCompile 'org.pegdown:pegdown:1.4.2'
+    }
+
+    apply plugin: "com.github.maiflai.scalatest"
 }
 
 buildscript {
-   
-   repositories {
-      mavenCentral()
-      maven { url "https://oss.sonatype.org/content/groups/public" }
-   }
-
-   dependencies {
-      classpath 'org.scoverage:gradle-scoverage:0.4.1-SNAPSHOT'
-   }
+    repositories {
+        jcenter()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.scoverage:gradle-scoverage:1.0.6'
+        classpath "com.github.maiflai:gradle-scalatest:0.6-5-g9065d91"
+    }
 }
 
-apply plugin: org.scoverage.ScoveragePlugin
+subprojects {
+    buildscript {
+        repositories {
+            mavenCentral()
+        }
+        dependencies {
+            classpath 'org.scoverage:gradle-scoverage:1.0.6'
+        }
+    }
 
-dependencies {
-   scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:0.99.5'
-   compile 'org.scala-lang:scala-library:2.11.0'
+    testScoverage { onlyIf { project.name.endsWith('-tests') }  }
+    reportScoverage { onlyIf { project.name.endsWith('-tests') } }
 }
 
-dependencies {
-   compile 'commons-collections:commons-collections:3.2'
-   testCompile 'junit:junit:4.11'
+configure(subprojects.findAll { it.name.endsWith('-tests') }) {
+    def mainProject = project(":${project.name.minus('-tests')}")
+    dependencies {
+        testCompile mainProject
+    }
+    scoverage {
+        sources = mainProject.extensions.scoverage.sources
+        dataDir = mainProject.extensions.scoverage.dataDir
+        reportDir = mainProject.extensions.scoverage.reportDir
+    }
+    testScoverage {
+        classpath = mainProject.sourceSets.scoverage.runtimeClasspath + sourceSets.test.runtimeClasspath
+    }
 }
